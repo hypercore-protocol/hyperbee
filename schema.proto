@@ -21,6 +21,7 @@ message Node {
   required bytes index = 1;
   required bytes key = 2;
   optional bytes value = 3;
+  optional bool link = 4;
 }
 
 message Extension {

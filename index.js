@@ -208,13 +208,24 @@ class BlockEntry {
     this.indexBuffer = entry.index
     this.key = entry.key
     this.value = entry.value
+    this.link = entry.link
   }
 
-  final () {
+  async final () {
+    const key = this.tree.keyEncoding ? this.tree.keyEncoding.decode(this.key) : this.key
+    const value = this.value && (this.tree.valueEncoding ? this.tree.valueEncoding.decode(this.value) : this.value)
+    if (this.link && !this.tree.options.noResolve) {
+      const node = await this.tree.get(value)
+      return {
+        seq: this.seq,
+        key,
+        value: node ? node.value : null
+      }
+    }
     return {
       seq: this.seq,
-      key: this.tree.keyEncoding ? this.tree.keyEncoding.decode(this.key) : this.key,
-      value: this.value && (this.tree.valueEncoding ? this.tree.valueEncoding.decode(this.value) : this.value)
+      key,
+      value
     }
   }
 
@@ -397,7 +408,7 @@ class HyperBee {
 
   put (key, value, opts) {
     const b = new Batch(this, true, true, opts)
-    return b.put(key, value)
+    return b.put(key, value, opts)
   }
 
   batch (opts) {
@@ -436,6 +447,7 @@ class Batch {
     this.options = options
     this.locked = null
     this.onseq = this.options.onseq || noop
+    this.noResolve = this.options.noResolve
   }
 
   ready () {
@@ -511,11 +523,12 @@ class Batch {
     }
   }
 
-  async put (key, value) {
+  async put (key, value, opts) {
     if (!this.locked) await this.lock()
 
     key = enc(this.keyEncoding, key)
     value = enc(this.valueEncoding, value)
+    const link = !!(opts && opts.link)
 
     const stack = []
 
@@ -540,7 +553,7 @@ class Batch {
 
         if (c === 0) {
           node.setKey(mid, target)
-          return this._append(root, seq, key, value)
+          return this._append(root, seq, key, value, link)
         }
 
         if (c < 0) e = mid
@@ -569,7 +582,7 @@ class Batch {
       }
     }
 
-    return this._append(root, seq, key, value)
+    return this._append(root, seq, key, value, link)
   }
 
   async del (key) {
@@ -662,7 +675,7 @@ class Batch {
     if (locked !== null) locked()
   }
 
-  _append (root, seq, key, value) {
+  _append (root, seq, key, value, link) {
     const index = []
     root.indexChanges(index, seq)
     index[0] = new Child(seq, 0, root)
@@ -679,6 +692,7 @@ class Batch {
     return this._appendBatch(Node.encode({
       key,
       value,
+      link,
       index: deflate(index)
     }))
   }
