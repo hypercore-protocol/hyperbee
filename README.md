@@ -200,6 +200,10 @@ await subDb.get('b')
 
 Current version.
 
+#### `metadata = await db.getMetadata()`
+
+Get the metadata, if it was set with `opts.metadata` when creating the hyperbee. The metadata is stored at the start of the underlying feed.
+
 #### `await db.ready()`
 
 Makes sure internal state is loaded. Call this once before checking the version if you haven't called any of the other APIs.
