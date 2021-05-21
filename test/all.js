@@ -56,6 +56,35 @@ tape('createHistoryStream reverse', async function (t) {
   })
 })
 
+tape('createReadStream with live:true', async function (t) {
+  const db = create({ keyEncoding: 'utf8' })
+
+  const b = db.batch()
+
+  await b.put('a', null)
+  await b.put('b', null)
+  await b.put('c', null)
+
+  await b.flush()
+
+  let data = ''
+  const s = db.createReadStream({ gte: 'a', live: true })
+  s.on('data', function ({ key }) {
+    data += key
+  })
+
+  setTimeout(async () => {
+    await db.put('d', null)
+  }, 200)
+
+  return new Promise(resolve => {
+    s.on('end', function () {
+      t.same(data, 'abcd', 'stream should stay open')
+      resolve()
+    })
+  })
+})
+
 tape('out of bounds iterator, string encoding', async function (t) {
   const db = create({ keyEncoding: 'utf8' })
 
